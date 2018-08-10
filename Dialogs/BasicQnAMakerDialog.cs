@@ -7,6 +7,8 @@ using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.CognitiveServices.QnAMaker;
 using Microsoft.Bot.Connector;
 using System.Configuration;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace Microsoft.Bot.Sample.QnABot
 {
@@ -79,14 +81,12 @@ namespace Microsoft.Bot.Sample.QnABot
         // Required: subscriptionKey, knowledgebaseId, 
         // Optional: defaultMessage, scoreThreshold[Range 0.0 – 1.0]
 
-        //static readonly string qnaAuthKey = ConfigurationManager.AppSettings["QnAAuthKey"];
-        //static readonly string qnaKBId = ConfigurationManager.AppSettings["QnAKnowledgebaseId"];
-        //static readonly string endpointHostName = ConfigurationManager.AppSettings["QnAEndpointHostName"];
+        
 
         public BasicQnAMakerPreviewDialog() : base(new QnAMakerService(new QnAMakerAttribute(RootDialog.GetSetting("QnAAuthKey"), ConfigurationManager.AppSettings["QnAKnowledgebaseId"], "No good match in FAQ.", 0.5)))
         { }
     }
-               
+
 
     // Dialog for QnAMaker GA service
     [Serializable]
@@ -97,11 +97,38 @@ namespace Microsoft.Bot.Sample.QnABot
         // Required: qnaAuthKey, knowledgebaseId, endpointHostName
         // Optional: defaultMessage, scoreThreshold[Range 0.0 – 1.0]
 
-        //static readonly string qnaAuthKey = ConfigurationManager.AppSettings["QnAAuthKey"];
-        //static readonly string qnaKBId = ConfigurationManager.AppSettings["QnAKnowledgebaseId"];
-        //static readonly string endpointHostName = ConfigurationManager.AppSettings["QnAEndpointHostName"];
+        public BasicQnAMakerDialog() : base(new QnAMakerService(new QnAMakerAttribute(RootDialog.GetSetting("QnAAuthKey"), ConfigurationManager.AppSettings["QnAKnowledgebaseId"], "No good match in FAAAAAAAQQQQQQQQQQ.", 0.5, 1, ConfigurationManager.AppSettings["QnAEndpointHostName"])))
+        {
 
-        public BasicQnAMakerDialog() : base(new QnAMakerService(new QnAMakerAttribute(RootDialog.GetSetting("QnAAuthKey"), ConfigurationManager.AppSettings["QnAKnowledgebaseId"], "No good match in FAQ.", 0.5, 1, ConfigurationManager.AppSettings["QnAEndpointHostName"])))
-        { }
+        }
+        protected override async Task RespondFromQnAMakerResultAsync(IDialogContext context, IMessageActivity message, QnAMakerResults result)
+        {
+            if (result.Answers.Count > 0)
+            {
+                //getting result, storing it in string response
+                string response = result.Answers.First().Answer;
+
+                //splitting response based on pipe
+                string[] QnAResponses = response.Split(new string[] { "|" }, StringSplitOptions.None);
+                if (QnAResponses.Count() > 1)
+                {
+                    Random rnd = new Random();
+                    int randomChoice = rnd.Next(0, QnAResponses.Count());
+
+                    //receiving a random response, pipe separated
+                    response = QnAResponses[randomChoice];
+
+                    //splitting caret, left side[0] = text response. right side[1] = speech response.
+                    string QnATextResponse = (response.Split('^'))[0];
+                    string QnASpeechResponse = (response.Split('^'))[1];
+
+                    //displaying multiple responses
+                    await context.PostAsync("Text Version: " + QnATextResponse);
+                    await context.PostAsync("\nSpeech Version: " + QnASpeechResponse);
+                }
+            }
+        }
     }
 }
+
+
